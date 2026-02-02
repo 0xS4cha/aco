@@ -148,7 +148,6 @@ def main():
         pygame.draw.circle(screen, COLOR_NEST, nest_pos["pos"], 10)
         
         for f in foods:
-            print(f["amount"], f["active"])
             if f["active"]:
                 rad = max(2, int(f["amount"]/100))
                 pygame.draw.circle(screen, COLOR_FOOD, f["pos"], rad)

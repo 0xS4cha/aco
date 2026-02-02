@@ -3,6 +3,7 @@ from enums import Caste
 import math
 import random
 import numpy as np
+from typing import Any
 
 CASTE_STATS = {
     Caste.WORKER:  {"speed": 2.0, "carry": True,  "vis": 1.0},
