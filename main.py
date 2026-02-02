@@ -1,12 +1,13 @@
 import pygame
 from ant import Ant
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 import random
 from enums import Caste
 
 WIDTH, HEIGHT = 1000, 800
-ANT_COUNT = 5000
+ANT_COUNT = 2000
 ENERGY_SPAWN = 0.5 # Nombre d'energie au spawn de la fourmi (0-1)
 HEALTH_SPAWN = 1.0 # Nombre de point de vie au spawn de la fourmi (0-1)
 FOODS_COUNT = 20
@@ -22,7 +23,7 @@ SENSOR_ANGLE = math.pi / 4  # 45 degrés
 EVAPORATION_RATE = 0.99     # Vitesse de disparition des phéromones (0-1)
 DIFFUSION_RATE = 0.05       # Légère diffusion pour lisser les pistes
 
-MAX_PHEROMONE_DROP = 100
+MAX_PHEROMONE_DROP = 1005
 MIN_PHEROMONE_DROP = 10
 DECAY_PER_STEP = 0.1 # Perte de puissance de la phéromone par pas effectué
 
@@ -36,9 +37,11 @@ COLOR_TRAIL_HOME = (0, 0, 255)   # Trace Bleue (laissée par ceux qui cherchent 
 COLOR_TRAIL_FOOD = (255, 0, 0)   # Trace Rouge (laissée par ceux qui ont trouvé la nourriture)
 
 
-
 def main():
     pygame.init()
+    history = {"foods": [],
+               "ant_food": []
+               }
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("ACO - 0xS4cha")
     clock = pygame.time.Clock()
@@ -58,7 +61,7 @@ def main():
 
     for _ in range(ANT_COUNT):
             ants.append(spawn_ant(nest_pos["pos"][0], nest_pos["pos"][1]))
-    
+
     foods = []
     for _ in range(FOODS_COUNT):
         foods.append({
@@ -69,13 +72,13 @@ def main():
 
     day_time = 0.0
     day_speed = 0.0005
-    current_tool = 0 
+    current_tool = 0
     iterations = 0
     brush_size = 20
     tool_names = ["Foods (Clic)", "Pheromones RED (Clic+Drag)", "Pheromones BLUE (Clic+Drag)", "Wall (Clic+Drag)"]
     running = True
     while running:
-        ants_has_food = 0
+        history["foods"].append(nest_food_stock)
         iterations += 1
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -90,27 +93,27 @@ def main():
                 if current_tool == 0:
                     mx, my = pygame.mouse.get_pos()
                     foods.append({
-                        "pos": (mx, my), 
+                        "pos": (mx, my),
                         "amount": 500,
                         "active":   True
                         })
         if pygame.mouse.get_pressed()[0]:
             mx, my = pygame.mouse.get_pos()
-            
+
             if current_tool == 1:
                 x_min = max(0, mx - brush_size)
                 x_max = min(WIDTH, mx + brush_size)
                 y_min = max(0, my - brush_size)
                 y_max = min(HEIGHT, my + brush_size)
-                pheromones[x_min:x_max, y_min:y_max, 0] = 255 
-            
+                pheromones[x_min:x_max, y_min:y_max, 0] = 255
+
             elif current_tool == 2:
                 x_min = max(0, mx - brush_size)
                 x_max = min(WIDTH, mx + brush_size)
                 y_min = max(0, my - brush_size)
                 y_max = min(HEIGHT, my + brush_size)
                 pheromones[x_min:x_max, y_min:y_max, 1] = 255
-            
+
             elif current_tool == 3:
                 x_min = max(0, mx - brush_size)
                 x_max = min(WIDTH, mx + brush_size)
@@ -118,8 +121,8 @@ def main():
                 y_max = min(HEIGHT, my + brush_size)
                 walls[x_min:x_max, y_min:y_max] = True
 
-        day_time = (day_time + day_speed) % 2.0 
-        sun_intensity = (math.cos(day_time * math.pi) + 1) / 2 
+        day_time = (day_time + day_speed) % 2.0
+        sun_intensity = (math.cos(day_time * math.pi) + 1) / 2
         current_vision_factor = 0.3 + (0.7 * sun_intensity) 
         current_evap = EVAPORATION_NIGHT if sun_intensity < 0.5 else EVAPORATION_DAY
         pheromones *= current_evap
@@ -138,15 +141,15 @@ def main():
         screen.fill(COLOR_BG)
 
         p_visual = np.zeros((WIDTH, HEIGHT, 3), dtype=np.uint8)
-        
+
         p_visual[:, :, 0] = np.clip(pheromones[:, :, 0] * 5, 0, 255).astype(np.uint8)
         p_visual[:, :, 2] = np.clip(pheromones[:, :, 1] * 5, 0, 255).astype(np.uint8)
-        
+
         surf = pygame.surfarray.make_surface(p_visual)
         screen.blit(surf, (0, 0))
 
         pygame.draw.circle(screen, COLOR_NEST, nest_pos["pos"], 10)
-        
+
         for f in foods:
             if f["active"]:
                 rad = max(2, int(f["amount"]/100))
@@ -156,10 +159,10 @@ def main():
             color = COLOR_ANT_FOOD if ant.has_food else COLOR_ANT_NO_FOOD
             screen.set_at((int(ant.x), int(ant.y)), color)
         if sun_intensity < 0.8:
-            darkness = int(255 * (1.0 - sun_intensity) * 0.8) 
+            darkness = int(255 * (1.0 - sun_intensity) * 0.8)
             night_surf = pygame.Surface((WIDTH, HEIGHT))
             night_surf.set_alpha(darkness)
-            night_surf.fill((0, 0, 20)) 
+            night_surf.fill((0, 0, 20))
             screen.blit(night_surf, (0, 0))
         time_str = "NIGHT" if sun_intensity < 0.5 else "DAY"
         infos = [
@@ -171,12 +174,27 @@ def main():
         for i, line in enumerate(infos):
             t = font.render(line, True, (200, 200, 200))
             screen.blit(t, (10, 10 + i*20))
-        
+
         pygame.display.flip()
         clock.tick(FPS)
         pygame.display.set_caption(f"ACO Simulation - FPS: {int(clock.get_fps())} - Ants: {len(ants)}/{ANT_COUNT} - Iterations: {iterations}")
 
     pygame.quit()
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(history["foods"], color='#00FF41', linewidth=2, label='Stock de nourriture')
+    ax.set_title('Evolution of Ant', color='#00FF41',
+                 fontsize=16)
+    ax.set_xlabel('Iteration Sequence')
+    ax.set_ylabel('Foods')
+    ax.grid(True, linestyle='--', alpha=0.3)
+
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    filename = "matrix_analysis.png"
+    plt.savefig(filename, dpi=100)
+    plt.close()
+
 
 if __name__ == "__main__":
     main()

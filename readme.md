@@ -49,7 +49,7 @@ graph TD
 ### Requirements
 
 ```bash
-pip install pygame numpy pydantic
+pip install pygame numpy pydantic matplotlib
 ```
 
 ## Usage
