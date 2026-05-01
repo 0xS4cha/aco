@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from enums import Caste
+from .enums import Caste
 import math
 import random
 import numpy as np
