@@ -1,6 +1,8 @@
 import pygame
 from .ant import Ant
 import numpy as np
+from scipy.ndimage import gaussian_filter
+from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt
 import math
 import random
@@ -97,6 +99,10 @@ def main() -> None:
         sun_intensity = (math.cos(day_time * math.pi) + 1) / 2
         current_vision_factor = 0.3 + (0.7 * sun_intensity) 
         current_evap = settings.EVAPORATION_NIGHT if sun_intensity < 0.5 else settings.EVAPORATION_DAY
+        
+        pheromones[:, :, 0] = gaussian_filter(pheromones[:, :, 0], sigma=0.5)
+        pheromones[:, :, 1] = gaussian_filter(pheromones[:, :, 1], sigma=0.5)
+        
         pheromones *= current_evap
         pheromones[pheromones < 0.01] = 0
         dropped_food_this_frame = 0
@@ -127,15 +133,16 @@ def main() -> None:
                 rad = max(2, int(f["amount"]/100))
                 pygame.draw.circle(screen, settings.COLOR_FOOD, f["pos"], rad)
 
+        px_array = pygame.PixelArray(screen)
+        color_ant_food = screen.map_rgb(settings.COLOR_ANT_FOOD)
+        color_ant_no_food = screen.map_rgb(settings.COLOR_ANT_NO_FOOD)
+        w_max, h_max = settings.WIDTH - 1, settings.HEIGHT - 1
         for ant in ants:
-            color = settings.COLOR_ANT_FOOD if ant.has_food else settings.COLOR_ANT_NO_FOOD
-            screen.set_at((int(ant.x), int(ant.y)), color)
-        if sun_intensity < 0.8:
-            darkness = int(255 * (1.0 - sun_intensity) * 0.8)
-            night_surf = pygame.Surface((settings.WIDTH, settings.HEIGHT))
-            night_surf.set_alpha(darkness)
-            night_surf.fill((0, 0, 20))
-            screen.blit(night_surf, (0, 0))
+            ax = max(0, min(w_max, int(ant.x)))
+            ay = max(0, min(h_max, int(ant.y)))
+            px_array[ax, ay] = color_ant_food if ant.has_food else color_ant_no_food
+        px_array.close()
+
         time_str = "NIGHT" if sun_intensity < 0.5 else "DAY"
         infos = [
             f"Time: {time_str} ({int(sun_intensity*100)}%)",

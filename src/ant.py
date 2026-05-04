@@ -11,28 +11,31 @@ CASTE_STATS = {
 }
 
 
-class Ant(BaseModel):
-    x: int = Field(...)
-    y: int = Field(...)
-    caste: Caste = Field(...)
-    sensor_angle: float = Field(...)
-    width: int =  Field(...)
-    height: int = Field(...)
-    alpha: float = Field(...)
-    beta: float = Field(...)
-    gamma: float = Field(...)
-    decay_per_step: float = Field(...)
-    max_pheromone_drop: int = Field(...)
-    min_pheromone_drop: int = Field(...)
-    speed: float = 0
-    carry: float = False
-    vision_mult: float = 0
-    angle: float = Field(default_factory=lambda: random.uniform(0, 2 * math.pi))
-    has_food: bool = False
-    steps_from_nest: int = 0
-    steps_from_food: int = 0
-    
-    def model_post_init(self, __context: Any) -> None:
+class Ant:
+    __slots__ = ['x', 'y', 'caste', 'sensor_angle', 'width', 'height', 'alpha', 'beta', 
+                 'gamma', 'decay_per_step', 'max_pheromone_drop', 'min_pheromone_drop', 
+                 'speed', 'carry', 'vision_mult', 'angle', 'has_food', 'steps_from_nest', 'steps_from_food']
+
+    def __init__(self, x: int, y: int, caste: Caste, sensor_angle: float, width: int, 
+                 height: int, alpha: float, beta: float, gamma: float, decay_per_step: float, 
+                 max_pheromone_drop: int, min_pheromone_drop: int):
+        self.x = float(x)
+        self.y = float(y)
+        self.caste = caste
+        self.sensor_angle = sensor_angle
+        self.width = width
+        self.height = height
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.decay_per_step = decay_per_step
+        self.max_pheromone_drop = max_pheromone_drop
+        self.min_pheromone_drop = min_pheromone_drop
+        self.angle = random.uniform(0, 2 * math.pi)
+        self.has_food = False
+        self.steps_from_nest = 0
+        self.steps_from_food = 0
+        
         stats = CASTE_STATS[self.caste]
         self.speed = stats["speed"]
         self.carry = stats["carry"]
@@ -54,13 +57,14 @@ class Ant(BaseModel):
             if self.caste == Caste.WORKER:
                 min_dist = VISION_RADIUS
                 for f in foods:
-                    dist = math.hypot(f["pos"][0] - self.x, f["pos"][1] - self.y)
-                    if dist < min_dist and f["active"]:
-                        angle_to = math.atan2(f["pos"][1] - self.y, f["pos"][0] - self.x)
-                        angle_diff = (angle_to - self.angle + math.pi) % (2 * math.pi) - math.pi
-                        if abs(angle_diff) < SENSOR_ANGLE:
-                            min_dist = dist
-                            closest_food = f
+                    if f["active"]:
+                        dist = math.hypot(f["pos"][0] - self.x, f["pos"][1] - self.y)
+                        if dist < min_dist:
+                            angle_to = math.atan2(f["pos"][1] - self.y, f["pos"][0] - self.x)
+                            angle_diff = (angle_to - self.angle + math.pi) % (2 * math.pi) - math.pi
+                            if abs(angle_diff) < SENSOR_ANGLE:
+                                min_dist = dist
+                                closest_food = f
                 
                 if closest_food:
                     target = closest_food["pos"]
@@ -96,11 +100,9 @@ class Ant(BaseModel):
             cx = int(self.x + math.cos(check_angle) * SENSOR_DIST)
             cy = int(self.y + math.sin(check_angle) * SENSOR_DIST)
             
-            tau = 0
+            tau = 0.0
             if 0 <= cx < WIDTH and 0 <= cy < HEIGHT:
-                tau = np.mean(grid_pheromones[max(0, cx-1):min(WIDTH, cx+2), 
-                                               max(0, cy-1):min(HEIGHT, cy+2), 
-                                               pheromone_layer])
+                tau = float(grid_pheromones[cx, cy, pheromone_layer])
             
             eta = 1.0
             if target:
@@ -114,7 +116,10 @@ class Ant(BaseModel):
         total_score = sum(probs)
         
         if total_score > 0:
-            chosen_dir_index = random.choices([0, 1, 2], weights=probs, k=1)[0]
+            r = random.uniform(0, total_score)
+            if r <= probs[0]: chosen_dir_index = 0
+            elif r <= probs[0] + probs[1]: chosen_dir_index = 1
+            else: chosen_dir_index = 2
             
             steering = directions[chosen_dir_index]
             self.angle += steering * 0.2 + random.uniform(-0.05, 0.05)
@@ -122,12 +127,12 @@ class Ant(BaseModel):
         self.x += math.cos(self.angle) * self.speed
         self.y += math.sin(self.angle) * self.speed
         
-        if self.x < 0 or self.x > WIDTH:
+        if self.x < 0 or self.x >= WIDTH:
             self.angle = math.pi - self.angle
-            self.x = max(0, min(WIDTH, self.x))
-        if self.y < 0 or self.y > HEIGHT:
+            self.x = max(0.0, min(float(WIDTH - 1), self.x))
+        if self.y < 0 or self.y >= HEIGHT:
             self.angle = -self.angle
-            self.y = max(0, min(HEIGHT, self.y))
+            self.y = max(0.0, min(float(HEIGHT - 1), self.y))
             
         self.steps_from_nest += 1
         self.steps_from_food += 1

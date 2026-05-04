@@ -5,7 +5,7 @@ import math
 class Settings(BaseModel):
     WIDTH: int = 1920
     HEIGHT: int = 1080
-    ANT_COUNT: int = 10000
+    ANT_COUNT: int = 5000
     ENERGY_SPAWN: float = 0.5  # (0-1)
     HEALTH_SPAWN: float = 1.0  # (0-1)
     FOODS_COUNT: int = 20
